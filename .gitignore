@@ -163,3 +163,7 @@ cython_debug/
 
 # ZIP files
 *.zip
+
+# Development
+dev/
+test/
