@@ -11,20 +11,17 @@ from validators import InputValidator
 # `traversal_depth` function determines how many path traversal paths are traversed
 def get_traversal_depth():
     depth = default_config["pt"]["traversal_depth"] or 1
-    if default_mode:
-        if InputValidator.is_int(depth) == False:
-            print("[!] Please check the default config file, seems to be an error under path traversal settings.\n"
-                "    Path traversal depth must be a positive integer")
-            exit(1)
-    else:
+    
+    if default_mode == False:
         while True:
             depth = input(f"[+] Enter number of path traversal occurrences (depth) you would like to test. (Press enter for default `{depth}`):").strip() or default_config["pt"]["traversal_depth"]
-            print(f"[i] Generating `{depth}` occurrences of Path Traversal sequence.\n")
             try:
                 depth = int(depth)
                 break
             except:
                 print("Invalid. Depth must be a positive Integer.\n")
+    
+    print(f"[i] Generating `{depth}` occurrences of Path Traversal sequence.\n")
     
     return depth
 
@@ -63,7 +60,7 @@ def create_path_traversal():
     
     # Get an existing ZIP file to copy and work on
     while True:
-        zip_location = input("[+] Enter an existing ZIP file location to work on. (Press enter to create a new zip): ").strip()
+        zip_location = input("[+] Enter an existing ZIP file location to work with. (Press enter to create a new zip): ").strip()
         
         # If user gave a ZIP he would want to work on
         if zip_location:
@@ -72,7 +69,7 @@ def create_path_traversal():
                 # Create a copy of the ZIP that the user gave
                 shutil.copy(zip_location, zip_file)
                 
-                print(f"[i] Using existing ZIP '{zip_location}'\n")
+                print(f"[i] Using ZIP from '{zip_location}', modifications will be on made on a copy.\n")
                 
                 # Exit loop
                 break
@@ -121,7 +118,6 @@ def create_path_traversal():
             # Exit loop
             break
     
-    # TODO: Get a file from the user he would like to put inside the zip, if none is provided create a file
     # Add File into the ZIP with its name containing Path Traversal to the ZIP with custom names
     with zipfile.ZipFile(zip_file, 'a') as zipf:
         zipf.write(tmp_file_name, arcname=path_traversal_dir)
@@ -144,7 +140,7 @@ def spoof_file_name():
     
     # Get/Create ZIP with a file to spoof its name and the spoofed file name to replace the original file name
     while True:
-        zip_location = input("Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
+        zip_location = input("[+] Enter an existing ZIP file location to work with. (Press enter to create a new zip): ").strip()
         print()
         
         # If user gave a ZIP he would want to work on
@@ -153,16 +149,18 @@ def spoof_file_name():
             if os.path.exists(zip_location) and zipfile.is_zipfile(zip_location):
                 # Create a copy of the ZIP that the user gave
                 shutil.copy(zip_location, zip_file)
+                print(f"[i] Using ZIP from '{zip_location}', modifications will be on made on a copy.\n")
 
                 # Get the file name to be spoofed
                 while True:
                     filename_to_spoof = input("[+] Please enter the current name of the file you wish to spoof.\n "
-                        "Please provide the full file path inside the zip (including the file extension), "
-                        "e.g. `src/components/index.js`:(Press enter to automatically create a spoofable file) ").strip()
-                    print()
+                        "Please provide the relative file path inside the zip (including the file extension), "
+                        "e.g. `src/components/index.js`:(Press enter to create a new spoofable file) ").strip() or original_filename
+                    
+                    print(f"[i] File to be spoofed - `{filename_to_spoof}`.\n")
                     
                     # If the user provided a file directory to spoof
-                    if filename_to_spoof:
+                    if filename_to_spoof != original_filename:
                         # Open the ZIP and check if the file exists
                         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
                             zip_contents = zip_ref.namelist()
@@ -175,21 +173,20 @@ def spoof_file_name():
                                 # Get spoofed file name to replace original file name
                                 while True:
                                     spoofed_filename = input(f"Please insert a spoofed file name to replace the original name `{original_filename}` with.\n"
-                                        f"!! Notice, the spoofed name should contain exactly {len(original_filename)} characters !!\n").strip()
-                                    print()
+                                        f"!! Notice, the spoofed name should contain exactly `{len(original_filename)}` characters !!").strip()
                                     
                                     # Verify spoofed file name is equal to original name
                                     if len(original_filename) != len(spoofed_filename):
-                                        print("Original file name and spoofed Filenames lengths must be equal")
+                                        print("[!] Original file and Spoofed File names lengths must be equal")
                                     
                                     # Exit loop
-                                    else:
+                                    else:                                        
                                         break
                                 
                                 # Exit loop
                                 break
                             else:
-                                print(f"`{filename_to_spoof}` does not exist in the given zip. Please double check the file name and try again.")                                # Will start loop again and request file name again
+                                print(f"`{filename_to_spoof}` does not exist in the given zip. Please double check the file name & path and try again.\n")                                # Will start loop again and request file name again
                     
                     # Add a default file to spoof
                     else:
@@ -212,6 +209,8 @@ def spoof_file_name():
             
             # Exit loop
             break
+        
+    print(f"[i] File `{original_filename}` will be spoofed with the name `{spoofed_filename}`\n")
 
     # Replace the file name within the ZIP binary data
     with open(zip_file, 'rb') as zipf:
