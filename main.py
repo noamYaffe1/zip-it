@@ -5,6 +5,7 @@ import os
 import zipfile
 import shutil
 import sys
+from datetime import datetime
 from validators import InputValidator
 
 # `traversal_depth` function determines how many path traversal paths are traversed
@@ -51,18 +52,32 @@ def create_path_traversal(path):
         
     path_traversal_dir += path + get_file_name()
     
+    # Get an existing ZIP file to copy and work on
     while True:
-        zip_location = input("Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
-        print()
+        zip_location = input("[+] Enter an existing ZIP file location to work on (Enter to skip and create a new zip): ").strip()
         
+        # If user gave a ZIP he would want to work on
         if zip_location:
+            # Verify ZIP location
             if os.path.exists(zip_location) and zipfile.is_zipfile(zip_location):
                 # Create a copy of the ZIP that the user gave
                 shutil.copy(zip_location, zip_file)
+                
+                print(f"[i] Using existing ZIP '{zip_location}'\n")
+                
+                # Exit loop
                 break
+            
+            # ZIP not found
             else:
-                print("Invalid location, zip not found.")
+                # Will start loop again and request valid zip location again
+                print("[!] Invalid location, zip not found.\n")
+        
+        # Create a new ZIP (Will happen later on in the code...)
         else:
+            print(f"[i] Creating a new ZIP\n")
+
+            # Exit loop
             break
     
     # TODO: Allow the user to choose a different file to contain path traversal (Only if the user gave a zip file)
@@ -312,7 +327,7 @@ default_config = {
     }
 }
 
-zip_file = default_config["zip_name"]
+zip_file = datetime.now().strftime("%d-%m-%Y_%H-%M-%S") + "---" + default_config["zip_name"]
 
 default_mode = False
         
